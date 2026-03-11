@@ -1,0 +1,12 @@
+// src/lib/pocketbase.js
+// Client PocketBase 0.36 – importé partout dans l'app
+// Installation : npm install pocketbase
+
+import PocketBase from 'pocketbase';
+
+const PB_URL = import.meta.env.VITE_PB_URL ?? 'http://127.0.0.1:8090';
+
+export const pb = new PocketBase(PB_URL);
+
+// Maintenir la session entre les rechargements de page
+pb.autoCancellation(false);

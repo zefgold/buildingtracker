@@ -17,7 +17,7 @@ onBeforeServe((e) => {
   // Enregistrer le cron : tous les jours à 08h00 UTC
   $app.cron().add("deadline-notify", "0 8 * * *", () => {
     const resendKey = $os.getenv("RESEND_API_KEY");
-    const appUrl    = $os.getenv("APP_URL")    || "http://localhost:3000";
+    const appUrl = $os.getenv("APP_URL") || "http://localhost:3000";
     const fromEmail = $os.getenv("FROM_EMAIL") || "tracker@example.com";
 
     if (!resendKey) {
@@ -30,11 +30,15 @@ onBeforeServe((e) => {
     // Récupérer toutes les actions OPEN avec une date d'échéance
     let actions;
     try {
-      actions = $app.dao().findRecordsByFilter(
-        "actions",
-        "status = 'OPEN' && due != ''",
-        "-due", 200, 0
-      );
+      actions = $app
+        .dao()
+        .findRecordsByFilter(
+          "actions",
+          "status = 'OPEN' && due != ''",
+          "-due",
+          200,
+          0,
+        );
     } catch (err) {
       console.error("[deadline-notify] Erreur de requête :", err);
       return;
@@ -43,10 +47,10 @@ onBeforeServe((e) => {
     let sent = 0;
 
     for (const action of actions) {
-      const dueStr  = action.getString("due");
+      const dueStr = action.getString("due");
       if (!dueStr) continue;
 
-      const due      = new Date(dueStr);
+      const due = new Date(dueStr);
       const diffDays = Math.round((due - today) / 86_400_000);
 
       if (!REMIND_DAYS.includes(diffDays)) continue;
@@ -56,11 +60,11 @@ onBeforeServe((e) => {
       // Trouver le profil utilisateur par full_name
       let ownerRecord;
       try {
-        ownerRecord = $app.dao().findFirstRecordByFilter(
-          "users",
-          `full_name = {:name}`,
-          { name: owner }
-        );
+        ownerRecord = $app
+          .dao()
+          .findFirstRecordByFilter("users", `full_name = {:name}`, {
+            name: owner,
+          });
       } catch (_) {
         console.warn(`[deadline-notify] Propriétaire introuvable : ${owner}`);
         continue;
@@ -69,13 +73,13 @@ onBeforeServe((e) => {
       const email = ownerRecord.email();
       if (!email) continue;
 
-      const title    = action.getString("title");
+      const title = action.getString("title");
       const priority = action.getString("priority");
-      const org      = action.getString("org");
-      const dayWord  = diffDays === 1 ? "demain" : `dans ${diffDays} jours`;
+      const org = action.getString("org");
+      const dayWord = diffDays === 1 ? "demain" : `dans ${diffDays} jours`;
 
       const subject = `[Tracker] Rappel – "${title}" échéance ${dayWord}`;
-      const html    = `
+      const html = `
         <p>Bonjour ${owner},</p>
         <p>Ce message est un rappel automatique : l'action suivante arrive à échéance <strong>${dayWord}</strong>.</p>
         <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px;margin:12px 0">
@@ -90,14 +94,14 @@ onBeforeServe((e) => {
 
       // Appel Resend via $http
       let success = false;
-      let errMsg  = "";
+      let errMsg = "";
       try {
         const resp = $http.send({
-          url:    "https://api.resend.com/emails",
+          url: "https://api.resend.com/emails",
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${resendKey}`,
-            "Content-Type":  "application/json",
+            Authorization: `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ from: fromEmail, to: email, subject, html }),
           timeout: 10,
@@ -110,13 +114,15 @@ onBeforeServe((e) => {
 
       // Journaliser dans notification_log
       try {
-        const collection = $app.dao().findCollectionByNameOrId("notification_log");
-        const log        = new Record(collection);
-        log.set("action",    action.id);
+        const collection = $app
+          .dao()
+          .findCollectionByNameOrId("notification_log");
+        const log = new Record(collection);
+        log.set("action", action.id);
         log.set("recipient", email);
-        log.set("subject",   subject);
-        log.set("success",   success);
-        log.set("error",     errMsg);
+        log.set("subject", subject);
+        log.set("success", success);
+        log.set("error", errMsg);
         $app.dao().saveRecord(log);
       } catch (err) {
         console.error("[deadline-notify] Erreur de log :", err);
@@ -124,7 +130,9 @@ onBeforeServe((e) => {
 
       if (success) {
         sent++;
-        console.log(`[deadline-notify] Email envoyé → ${email} (action ${action.id})`);
+        console.log(
+          `[deadline-notify] Email envoyé → ${email} (action ${action.id})`,
+        );
       } else {
         console.error(`[deadline-notify] Échec envoi → ${email} : ${errMsg}`);
       }

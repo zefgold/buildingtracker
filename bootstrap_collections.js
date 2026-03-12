@@ -140,12 +140,9 @@ async function main() {
   console.log("👤  Extension collection 'users'...");
   await patchCollection("users", {
     schema: [
-      { name: "full_name", type: "text",   required: true,
-        options: { min: 2, max: 120, pattern: "" } },
-      { name: "org",  type: "select", required: true,
-        options: { maxSelect: 1, values: ["RPN","SHP","SOMBP","G&T"] } },
-      { name: "role", type: "select", required: true,
-        options: { maxSelect: 1, values: ["admin","editor","viewer"] } },
+      { name: "full_name", type: "text",   required: true,  min: 2, max: 120 },
+      { name: "org",       type: "select", required: true,  maxSelect: 1, values: ["RPN","SHP","SOMBP","G&T"] },
+      { name: "role",      type: "select", required: true,  maxSelect: 1, values: ["admin","editor","viewer"] },
     ],
   }, token);
 

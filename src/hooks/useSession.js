@@ -20,26 +20,29 @@ export function useSession() {
         `week = ${Number(formData.week)}`
       ).catch(() => null);
 
+      const payload = {
+        meeting_date: formData.date         ?? '',
+        type:         formData.type         ?? '',
+        section:      formData.section      ?? '',
+        location:     formData.location     ?? '',
+        chair:        formData.chair        ?? '',
+        next_meeting: formData.nextMeeting  ?? '',
+        notes:        formData.notes        ?? '',
+      };
+
       let rec;
       if (existing) {
-        rec = await pb.collection('sessions').update(existing.id, {
-          meeting_date: formData.date,
-          location:     formData.location ?? '',
-          chair:        formData.chair    ?? '',
-          notes:        formData.notes    ?? '',
-        });
+        rec = await pb.collection('sessions').update(existing.id, payload);
       } else {
         rec = await pb.collection('sessions').create({
-          week:         Number(formData.week),
-          meeting_date: formData.date,
-          location:     formData.location ?? '',
-          chair:        formData.chair    ?? '',
-          notes:        formData.notes    ?? '',
+          week: Number(formData.week),
+          ...payload,
         });
       }
       setSession(rec);
       return rec;
     } catch (e) {
+      console.error('[useSession] saveSession:', e);
       setError(e.message);
       throw e;
     } finally {
@@ -55,7 +58,7 @@ export function useSession() {
     try {
       // Supprimer les anciens enregistrements pour cette session (idempotent)
       const existing = await pb.collection('attendance').getFullList({
-        filter: `session = "${sessionId}"`,
+        filter: `session = '${sessionId}'`,
       });
       await Promise.all(
         existing.map((r) => pb.collection('attendance').delete(r.id))
@@ -69,10 +72,12 @@ export function useSession() {
             participant: p.name,
             org:         p.org,
             status:      p.attendance.toLowerCase(), // PRESENT/ABSENT/EXCUSED → present/absent/excused
+            substitute:  p.substitute ?? '',
           })
         )
       );
     } catch (e) {
+      console.error('[useSession] saveAttendance:', e);
       setError(e.message);
       throw e;
     } finally {
@@ -80,5 +85,17 @@ export function useSession() {
     }
   }, []);
 
-  return { session, saving, error, saveSession, saveAttendance };
+  // ── Récupérer tous les participants uniques de l'historique ──
+  // Déduplique par nom (lowercase) ; en cas de doublon, le plus récent gagne.
+  const fetchAllParticipants = useCallback(async () => {
+    const all = await pb.collection('attendance').getFullList({ sort: 'created' });
+    const map = new Map();
+    for (const r of all) {
+      const key = r.participant?.trim()?.toLowerCase();
+      if (key) map.set(key, { name: r.participant.trim(), org: r.org ?? '' });
+    }
+    return Array.from(map.values());
+  }, []);
+
+  return { session, saving, error, saveSession, saveAttendance, fetchAllParticipants };
 }
